@@ -6,10 +6,11 @@ import (
 	"path/filepath"
 )
 
-func main1(arg string) (bool, error) {
+func rmdirsonly(arg string) bool {
 	dirEntries, err := os.ReadDir(arg)
 	if err != nil {
-		return false, fmt.Errorf("%s: os.ReadDir: %w", arg, err)
+		fmt.Fprintf(os.Stderr, "%s: os.ReadDir: %s\n", arg, err.Error())
+		return false
 	}
 	allEmpty := true
 	for _, dirEntry1 := range dirEntries {
@@ -18,14 +19,11 @@ func main1(arg string) (bool, error) {
 			continue
 		}
 		name := dirEntry1.Name()
-		if name == ".." {
+		if name == "." || name == ".." {
 			continue
 		}
 		fullPath := filepath.Join(arg, name)
-		isEmpty, err := main1(fullPath)
-		if err != nil {
-			return false, err
-		}
+		isEmpty := rmdirsonly(fullPath)
 		if !isEmpty {
 			allEmpty = false
 		}
@@ -33,18 +31,23 @@ func main1(arg string) (bool, error) {
 	if allEmpty {
 		err := os.Remove(arg)
 		if err != nil {
-			return false, fmt.Errorf("%s: os.Remove: %w", arg, err)
+			fmt.Fprintf(os.Stderr, "%s: os.Remove: %s\n", arg, err.Error())
+			return false
 		}
 		fmt.Printf("rmdir \"%s\"\n", arg)
 	}
-	return allEmpty, nil
+	return allEmpty
 }
 
 func main() {
 	for _, arg1 := range os.Args[1:] {
-		if _, err := main1(arg1); err != nil {
-			fmt.Println(os.Stderr, err.Error())
-			os.Exit(1)
+		files, err := filepath.Glob(arg1)
+		if err != nil {
+			rmdirsonly(arg1)
+		} else {
+			for _, fn := range files {
+				rmdirsonly(fn)
+			}
 		}
 	}
 }
